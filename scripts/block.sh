@@ -88,25 +88,29 @@ process_zone_file() {
         return 1
     fi
     
-    # Process file line by line
+    # Validate each line, then add all the valid ones with a single
+    # "ipset restore". Running "ipset add" per line forks a process per
+    # subnet, which is slow for countries with thousands of them.
+    local line
     while IFS= read -r line || [[ -n "$line" ]]; do
-        # Remove leading/trailing whitespace
-        line="${line##*( )}"
-        line="${line%%*( )}"
-        
+        # A subnet contains no whitespace, so strip all of it, including the
+        # \r of a CRLF file.
+        line="${line//[[:space:]]/}"
+
         # Skip empty lines and comments
-        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-        
+        [[ -z "$line" || "$line" == \#* ]] && continue
+
         if validate_ip_range "$line"; then
-            ipset -exist -A "$country" "$line" || {
-                echo "Error adding IP range $line to set $country" >> $LOG
-                continue
-            }
+            echo "add $country $line"
         else
             echo "Invalid IP range found: $line" >> $LOG
-            continue
         fi
-    done < "$zonefile"
+    done < "$zonefile" | ipset restore -exist || {
+        # ipset reports the offending line on stderr. Lines before it were
+        # still added.
+        echo "Error adding IP ranges from $zonefile to set $country" >> $LOG
+        return 1
+    }
 }
 
 # Earlier versions always wrote to iptables-legacy, and forks of this image
