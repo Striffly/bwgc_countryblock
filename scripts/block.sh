@@ -210,9 +210,30 @@ update() {
         local zonefile_name="${country,,}-aggregated.zone"
         local zonefile_remote="https://www.ipdeny.com/ipblocks/data/aggregated/${zonefile_name}"
         local zonefile="/tmp/${zonefile_name}"
-        curl $zonefile_remote -o $zonefile -z $zonefile
-        printf "Downloaded %b zone file %b to %b\n" "$country" "$zonefile_remote" "$zonefile" >> $LOG
-    
+        local partfile="${zonefile}.part"
+
+        # --fail: an HTTP error (404 for an unknown country code) must fail
+        # rather than save the error page as the zone file.
+        # Downloading to a separate file keeps the last good copy when the
+        # download fails, so the ipset is still rebuilt from it on start.
+        # -z skips the transfer when that copy is current; curl leaves the
+        # output file uncreated then. It warns when its file is missing, so it
+        # is only passed once there is one. --remote-time dates the file with
+        # the server's Last-Modified, which is what -z compares against.
+        local -a curl_opts=(--fail --silent --show-error --location --retry 3 --remote-time -o "$partfile")
+        [[ -f "$zonefile" ]] && curl_opts+=(-z "$zonefile")
+
+        rm -f "$partfile"
+        if ! curl "${curl_opts[@]}" "$zonefile_remote"; then
+            printf "Error: could not download %b zone file %b, keeping the previous one\n" "$country" "$zonefile_remote" >> $LOG
+        elif [[ -f "$partfile" ]]; then
+            mv "$partfile" "$zonefile"
+            printf "Downloaded %b zone file %b to %b\n" "$country" "$zonefile_remote" "$zonefile" >> $LOG
+        else
+            printf "%b zone file %b is unchanged\n" "$country" "$zonefile" >> $LOG
+        fi
+        rm -f "$partfile"
+
         # Add each IP address from the downloaded list into the ipset
         if [[ -f "$zonefile" ]]; then
             process_zone_file "$zonefile" "$country"
