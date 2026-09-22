@@ -109,6 +109,38 @@ process_zone_file() {
     done < "$zonefile"
 }
 
+# Earlier versions always wrote to iptables-legacy, and forks of this image
+# have used iptables-nft. When detection picks one backend, a chain left in the
+# other is not removed by cleanup. The kernel evaluates both backends, so that
+# chain keeps dropping whatever countries it was last given, and its references
+# to the country ipsets stop cleanup from destroying them.
+cleanup_other_backend() {
+    local other parent
+    for other in iptables-nft iptables-legacy; do
+        # An IPTABLES override such as plain "iptables" is one of these two
+        # under another name. Removing our chain from the active backend here
+        # is harmless: this only runs at start, before cleanup and setup.
+        [ "$other" = "$IPTABLES" ] && continue
+        command -v "$other" >/dev/null 2>&1 || continue
+        # Listing legacy rules loads its kernel modules and registers empty
+        # tables, after which every iptables-nft command on the host warns
+        # that legacy tables are present. Only look once legacy is in use.
+        if [ "$other" = iptables-legacy ] \
+           && ! grep -qx filter /proc/net/ip_tables_names 2>/dev/null; then
+            continue
+        fi
+        $other -S $CHAIN >/dev/null 2>&1 || continue
+
+        printf "Removing stale %b chain from %b\n" "$CHAIN" "$other" >> $LOG
+        for parent in INPUT DOCKER-USER; do
+            while $other -C $parent $JUMP_SPEC 2>/dev/null; do
+                $other -D $parent $JUMP_SPEC || break
+            done
+        done
+        $other -F $CHAIN
+        $other -X $CHAIN
+    done
+}
 
 setup() {
     # Create the chain if it is not already there.
@@ -193,7 +225,9 @@ update() {
 }
 
 if [ "$1" == "start" ]; then
-    # Clean up old rules if they exist in case last run crashed
+    # Clean up old rules if they exist in case last run crashed. The other
+    # backend goes first so the ipsets it references can then be destroyed.
+    cleanup_other_backend
     cleanup
     setup
     update
