@@ -38,7 +38,12 @@ IPTABLES=$(detect_iptables)
 printf "Starting blocklist and ipset construction for countries: %b\n" "$COUNTRIES" >> $LOG
 printf "Using iptables backend: %b\n" "$IPTABLES" >> $LOG
 
-# The jump that sends INPUT traffic into our chain.
+# The jump that sends traffic into our chain, from INPUT and DOCKER-USER.
+#
+# INPUT only sees traffic addressed to the host itself. Traffic to a port
+# published by a container on a bridge network is DNATed and routed through
+# FORWARD, so it never reaches INPUT. Docker passes that traffic through
+# DOCKER-USER first, the chain it reserves for user rules and never flushes.
 #
 # A rule spec with no position: -I takes a position, -D does not. Combining
 # them ("-D INPUT 1 -j countryblock") is a syntax error that exits 2 without
@@ -116,6 +121,14 @@ setup() {
         $IPTABLES -I INPUT $JUMP_POSITION $JUMP_SPEC
     fi
 
+    # DOCKER-USER exists only once Docker has set up its rules in this
+    # backend. Without it there is no container traffic to filter here.
+    if ! $IPTABLES -S DOCKER-USER >/dev/null 2>&1; then
+        printf "No DOCKER-USER chain in %b, container traffic is not filtered\n" "$IPTABLES" >> $LOG
+    elif ! $IPTABLES -C DOCKER-USER $JUMP_SPEC 2>/dev/null; then
+        $IPTABLES -I DOCKER-USER $JUMP_POSITION $JUMP_SPEC
+    fi
+
     for country in $COUNTRIES; do
 
         # Create ipset for each country
@@ -139,6 +152,10 @@ cleanup() {
     if [[ $removed -gt 1 ]]; then
         printf "Removed %d duplicate %b jumps left by earlier runs\n" "$removed" "$CHAIN" >> $LOG
     fi
+    # -C fails when DOCKER-USER does not exist, so this is a no-op there.
+    while $IPTABLES -C DOCKER-USER $JUMP_SPEC 2>/dev/null; do
+        $IPTABLES -D DOCKER-USER $JUMP_SPEC || break
+    done
 
     $IPTABLES -F $CHAIN 2>/dev/null || true
     $IPTABLES -X $CHAIN 2>/dev/null || true
