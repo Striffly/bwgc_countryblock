@@ -2,7 +2,7 @@ name: Check base image support window
 
 # The Dockerfile pins an Alpine branch rather than :latest. This opens an issue
 # when that branch is within 180 days of leaving support, and fails once it
-# has. The check lives in dadatuputi/bwgc_workflows.
+# has. The check lives in Striffly/bwgc_workflows.
 
 on:
   schedule:
@@ -11,7 +11,7 @@ on:
 
 jobs:
   check-support:
-    uses: dadatuputi/bwgc_workflows/.github/workflows/check-alpine-support.yml@1d54d36182bfc2058363dba6245978cb657aa49a # v1.1.0
+    uses: Striffly/bwgc_workflows/.github/workflows/check-alpine-support.yml@1d54d36182bfc2058363dba6245978cb657aa49a # v1.1.0
     permissions:
       contents: read
       issues: write

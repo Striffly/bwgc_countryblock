@@ -1,6 +1,6 @@
 name: Docker build image
 
-# The build itself lives in dadatuputi/bwgc_workflows, shared with the other
+# The build itself lives in Striffly/bwgc_workflows, shared with the other
 # bwgc_* image repositories. This file keeps what is particular to this
 # repository: when to build, and the inputs below.
 
@@ -34,7 +34,7 @@ on:
 
 jobs:
   build:
-    uses: dadatuputi/bwgc_workflows/.github/workflows/build-image.yml@1d54d36182bfc2058363dba6245978cb657aa49a # v1.1.0
+    uses: Striffly/bwgc_workflows/.github/workflows/build-image.yml@1d54d36182bfc2058363dba6245978cb657aa49a # v1.1.0
     with:
       test-image: bwgc_countryblock:test
       ref: ${{ inputs.ref }}

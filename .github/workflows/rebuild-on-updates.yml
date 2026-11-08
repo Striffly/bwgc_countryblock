@@ -1,6 +1,6 @@
 name: Rebuild when the base image or its packages change
 
-# The check and the keepalive live in dadatuputi/bwgc_workflows, shared with
+# The check and the keepalive live in Striffly/bwgc_workflows, shared with
 # the other bwgc_* image repositories; see check-for-updates.yml and
 # keepalive.yml there for how each decides.
 
@@ -18,7 +18,7 @@ jobs:
   # major tag (e.g. :1) newer deployments follow. Each is checked and
   # rebuilt on its own.
   check:
-    uses: dadatuputi/bwgc_workflows/.github/workflows/check-for-updates.yml@1d54d36182bfc2058363dba6245978cb657aa49a # v1.1.0
+    uses: Striffly/bwgc_workflows/.github/workflows/check-for-updates.yml@1d54d36182bfc2058363dba6245978cb657aa49a # v1.1.0
 
   build:
     needs: check
@@ -31,7 +31,7 @@ jobs:
       security-events: write
 
   check-release:
-    uses: dadatuputi/bwgc_workflows/.github/workflows/check-for-updates.yml@1d54d36182bfc2058363dba6245978cb657aa49a # v1.1.0
+    uses: Striffly/bwgc_workflows/.github/workflows/check-for-updates.yml@1d54d36182bfc2058363dba6245978cb657aa49a # v1.1.0
     with:
       release: true
 
@@ -52,6 +52,6 @@ jobs:
     # on its own, so this fires only during genuinely quiet stretches.
     needs: [check, check-release]
     if: needs.check.outputs.needs_build == 'false' && needs.check-release.outputs.needs_build == 'false'
-    uses: dadatuputi/bwgc_workflows/.github/workflows/keepalive.yml@1d54d36182bfc2058363dba6245978cb657aa49a # v1.1.0
+    uses: Striffly/bwgc_workflows/.github/workflows/keepalive.yml@1d54d36182bfc2058363dba6245978cb657aa49a # v1.1.0
     permissions:
       contents: write
