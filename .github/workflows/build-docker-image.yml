@@ -34,7 +34,7 @@ on:
 
 jobs:
   build:
-    uses: dadatuputi/bwgc_workflows/.github/workflows/build-image.yml@38f42c5731178d2fb116ba998b5a9098f0be8310 # v1.1.2
+    uses: Striffly/bwgc_workflows/.github/workflows/build-image.yml@c522fa633cc2ba62231daa70a2c2e4050eb72b8d # v1.1.2-1-gc522fa6
     with:
       test-image: bwgc_countryblock:test
       ref: ${{ inputs.ref }}
